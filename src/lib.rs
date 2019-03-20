@@ -176,4 +176,31 @@ mod tests {
         kv.put("foo".into(), Value::Null).unwrap();
         assert_eq!(kv.get("foo").unwrap().unwrap(), Value::Null);
     }
+
+    #[test]
+    fn roundtrip_text() {
+        let f = "/tmp/kv_text";
+        let _ = fs::remove_dir_all(f);
+        let mut kv = Cavey::new(f).unwrap();
+        kv.put("foo".into(), Value::Text("This".to_string())).unwrap();
+        assert_eq!(kv.get("foo").unwrap().unwrap(), Value::Text("This".to_string()));
+    }
+
+    fn encode(val: Value) -> Vec<u8> {
+        let mut vec = Vec::new();
+        val.encode_into(&mut vec);
+        vec
+    }
+
+    #[test]
+    fn test_serialize_values() {
+        assert_eq!(encode(Value::Null), b"n");
+        assert_eq!(encode(Value::Boolean(true)), b"t");
+        assert_eq!(encode(Value::Boolean(false)), b"f");
+        assert_eq!(encode(Value::Int(513)), b"i\x01\x02\0\0\0\0\0\0");
+        assert_eq!(encode(Value::Text("hello".into())), b"s\x05hello");
+        let long_string = String::from_utf8(vec![0x54; 291]).unwrap();
+        assert_eq!(&encode(Value::Text(long_string))[..10], b"S\x23\x01\0\0\0\0\0\0T");
+    }
+
 }
