@@ -10,8 +10,6 @@ enum Options {
     #[structopt(name = "put")] Put { key: String, value: String },
 
     #[structopt(name = "rm")] Remove { key: String },
-
-    #[structopt(name = "keys")] Keys,
 }
 
 fn main() -> Result<(), Error> {
@@ -31,9 +29,6 @@ fn main() -> Result<(), Error> {
                 println!("Key not found");
                 std::process::exit(1);
             }
-        },
-        Options::Keys => for key in cavey.keys()? {
-            println!("{}", key);
         },
     }
     Ok(())
