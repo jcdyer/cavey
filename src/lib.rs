@@ -34,9 +34,15 @@ impl Cavey {
 
         let datadir = path.as_ref().join("data");
         create_dir_all(&datadir)?;
-
-        let filename = datadir.join(format!("{:08}", 0));
-
+        // TODO handle opening datadir with later files.Command
+        let candidates = std::fs::read_dir(&datadir)?
+            .map(|entry| entry.map(|e| e.path()))
+            .collect::<std::io::Result<Vec<_>>>();
+        let mut candidates = candidates?;
+        candidates.sort();
+        let filename = candidates.into_iter().next().unwrap_or_else(|| datadir.join(format!("{:08}", 0)));
+        let basename = filename.file_name().unwrap();
+        let file_version = basename.to_string_lossy().parse().unwrap();
         let mut file = BufWriter::new(
             OpenOptions::new()
                 .create(true)
@@ -66,7 +72,7 @@ impl Cavey {
             offset += line.len() as u64 + 1;
         }
         let entries = keymap.len();
-        Ok(Cavey { datadir, file, keymap, entries, file_version: 0 })
+        Ok(Cavey { datadir, file, keymap, entries, file_version })
     }
 
     pub fn get(&mut self, key: String) -> Result<Option<String>> {
@@ -113,14 +119,13 @@ impl Cavey {
     }
 
     fn should_compact(&mut self) -> bool {
-        self.entries > 2000 && self.entries > 3 * self.keymap.len()
+        (self.entries >= 9990) && (self.entries > (3 * self.keymap.len()))
     }
 
     fn compact(&mut self) -> Result<()> {
         let existing = std::fs::read_dir(&self.datadir)?.collect::<Vec<_>>();
         let mut commands = Vec::with_capacity(self.keymap.len());
         for (_, (filename, offset)) in self.keymap.iter() {
-            println!("{}", filename.to_string_lossy());
             let mut f = File::open(filename)?;
             f.seek(SeekFrom::Start(*offset))?;
             let cmd = serde_json::Deserializer::from_reader(&mut f).into_iter().next();
@@ -130,15 +135,19 @@ impl Cavey {
                     // TODO: Validate key in Command
                     commands.push(cmd);
                 }
+            } else {
+                eprintln!("Something went wrong: {:?}", cmd);
             }
         }
 
         self.file_version += 1;
+        self.keymap.clear();
         let newfilename = self.current_file();
         let mut w = BufWriter::new(File::create(&newfilename)?);
         for cmd in commands {
-            let offset = self.file.seek(SeekFrom::Current(0))?;
+            let offset = w.seek(SeekFrom::Current(0))?;
             serde_json::to_writer(&mut w, &cmd)?;
+            w.write_all(b"\n")?;
             if let Command::Put { key, .. } = cmd {
                 self.keymap.insert(key, (newfilename.clone(), offset));
             };
@@ -146,6 +155,8 @@ impl Cavey {
         w.flush()?;
 
         std::mem::swap(&mut self.file, &mut w);
+        drop(w);
+        self.entries = self.keymap.len();
         for direntry in existing {
             std::fs::remove_file(direntry?.path())?;
         }
