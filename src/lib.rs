@@ -34,15 +34,13 @@ impl Cavey {
 
         let datadir = path.as_ref().join("data");
         create_dir_all(&datadir)?;
-        // TODO handle opening datadir with later files.Command
         let candidates = std::fs::read_dir(&datadir)?
             .map(|entry| entry.map(|e| e.path()))
             .collect::<std::io::Result<Vec<_>>>();
         let mut candidates = candidates?;
         candidates.sort();
-        let filename = candidates.into_iter().next().unwrap_or_else(|| datadir.join(format!("{:08}", 0)));
-        let basename = filename.file_name().unwrap();
-        let file_version = basename.to_string_lossy().parse().unwrap();
+        let filename = candidates.into_iter().take(1).next().unwrap_or_else(|| datadir.join(&format!("{:08}", 0)));
+        let file_version = usize::from_str_radix(&filename.file_name().unwrap().to_string_lossy(), 0x10)?;
         let mut file = BufWriter::new(
             OpenOptions::new()
                 .create(true)
@@ -58,6 +56,7 @@ impl Cavey {
         let mut keymap = BTreeMap::new();
         let mut offset = reader.seek(SeekFrom::Start(0))?;
 
+        let mut entries = 0;
         for line in BufReader::new(&mut reader).lines() {
             let line = line?;
             let cmd = serde_json::from_str(&line)?;
@@ -70,8 +69,8 @@ impl Cavey {
                 }
             }
             offset += line.len() as u64 + 1;
+            entries += 1;
         }
-        let entries = keymap.len();
         Ok(Cavey { datadir, file, keymap, entries, file_version })
     }
 
@@ -119,7 +118,7 @@ impl Cavey {
     }
 
     fn should_compact(&mut self) -> bool {
-        (self.entries >= 9990) && (self.entries > (3 * self.keymap.len()))
+        (self.entries >= 500) && (self.entries > (3 * self.keymap.len()))
     }
 
     fn compact(&mut self) -> Result<()> {
