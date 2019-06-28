@@ -1,29 +1,43 @@
+use std::net::SocketAddr;
+
 use failure::Error;
 use structopt::StructOpt;
 
-use cavey::{self, Cavey};
+use cavey::{self, CaveyClient};
 
-#[derive(Clone, Debug, StructOpt)]
-enum Options {
-    #[structopt(name = "get")] Get { key: String },
+#[derive(Debug, StructOpt)]
+struct Options {
+    #[structopt(short = "a", long = "addr", default_value = "[::1]:4000")]
+    addr: SocketAddr,
 
-    #[structopt(name = "put")] Put { key: String, value: String },
+    #[structopt(subcommand)]
+    cmd: Command,
+}
 
-    #[structopt(name = "rm")] Remove { key: String },
+#[derive(Debug, StructOpt)]
+enum Command {
+    #[structopt(name = "get")]
+    Get { key: String },
+
+    #[structopt(name = "put")]
+    Put { key: String, value: String },
+
+    #[structopt(name = "rm")]
+    Remove { key: String },
 }
 
 fn main() -> Result<(), Error> {
     let options = Options::from_args();
-    let mut cavey = Cavey::open(".")?;
-    match options {
-        Options::Get { key } => match cavey.get(key)? {
+    let client = CaveyClient::new(options.addr)?;
+    match options.cmd {
+        Command::Get { key } => match client.get(&key)? {
             Some(value) => println!("{}", value),
             None => {
                 println!("Key not found");
             }
         },
-        Options::Put { key, value } => cavey.put(key, value)?,
-        Options::Remove { key } => match cavey.remove(key) {
+        Command::Put { key, value } => client.put(&key, &value)?,
+        Command::Remove { key } => match client.remove(&key) {
             Ok(()) => eprintln!("Success"),
             Err(_) => {
                 println!("Key not found");
