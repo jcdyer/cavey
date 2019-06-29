@@ -7,6 +7,7 @@ pub use server::run_server;
 mod client;
 mod store;
 mod server;
+mod protocol;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
