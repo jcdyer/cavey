@@ -1,12 +1,15 @@
 use std::net::TcpListener;
 use std::io::prelude::*;
 
+use bincode::{deserialize_from, serialize_into};
 use log::{trace, info, error};
-use super::CaveyEngine;
-use super::Result;
 
-pub fn run_server(socket: &mut TcpListener, engine: &mut Box<dyn CaveyEngine>) -> Result<()> {
-    for mut stream in socket.incoming() {
+use crate::CaveyEngine;
+use crate::Result;
+use crate::protocol::{ClientMessage, ServerMessage};
+
+pub fn run_server(socket: &mut TcpListener, engine: &mut dyn CaveyEngine) -> Result<()> {
+    for stream in socket.incoming() {
         match stream {
             Ok(mut stream) => {
                 trace!("connection accepted");
@@ -20,9 +23,31 @@ pub fn run_server(socket: &mut TcpListener, engine: &mut Box<dyn CaveyEngine>) -
     Ok(())
 }
 
-fn handle_connection<R: Read>(stream: &mut R, engine: &mut Box<dyn CaveyEngine>) -> Result<()> {
-    let mut string = String::new();
-    stream.read_to_string(&mut string)?;
-    info!("Received string: {}", string);
+fn handle_connection<R: Read + Write>(stream: &mut R, engine: &mut dyn CaveyEngine) -> Result<()> {
+    let msg: ClientMessage = deserialize_from(&mut *stream)?;
+    info!("caveyd: received msg: {:?}", msg);
+    let response = match msg {
+        ClientMessage::Get { key } => {
+            match engine.get(key) {
+                Ok( value ) => ServerMessage::Success { value },
+                Err( err ) => ServerMessage::Error { err: format!("{}", err) },
+            }
+        },
+        ClientMessage::Put { key, value } => {
+            match engine.put(key, value) {
+                Ok(()) => ServerMessage::Success { value: None },
+                Err(err) => ServerMessage::Error { err: format!("{}", err) },
+            }
+        },
+        ClientMessage::Remove { key } => {
+            match engine.remove(key) {
+                Ok(()) => ServerMessage::Success {value: None },
+                Err(err) => ServerMessage::Error { err: format!("{}", err) },
+
+            }
+
+        },
+    };
+    serialize_into(stream, &response)?;
     Ok(())
 }

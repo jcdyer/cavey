@@ -34,7 +34,7 @@ fn client_cli_invalid_get() {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["get", "key", "--addr", "invalid-addr"])
+        .args(&["--addr", "invalid-addr", "get", "key"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
@@ -48,32 +48,32 @@ fn client_cli_invalid_get() {
 }
 
 #[test]
-fn client_cli_invalid_set() {
+fn client_cli_invalid_put() {
     let temp_dir = TempDir::new().unwrap();
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set"])
+        .args(&["put"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set", "missing_field"])
+        .args(&["put", "missing_field"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set", "key", "value", "extra_field"])
+        .args(&["put", "key", "value", "extra_field"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set", "key", "value", "--addr", "invalid-addr"])
+        .args(&["--addr", "invalid-addr", "put", "key", "value"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
@@ -105,7 +105,7 @@ fn client_cli_invalid_rm() {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["rm", "key", "--addr", "invalid-addr"])
+        .args(&["--addr", "invalid-addr", "rm", "key"])
         .current_dir(&temp_dir)
         .assert()
         .failure();
@@ -144,7 +144,7 @@ fn client_cli_version() {
 #[test]
 fn server_cli_version() {
     let temp_dir = TempDir::new().unwrap();
-    let mut cmd = Command::cargo_bin("cavey-server").unwrap();
+    let mut cmd = Command::cargo_bin("caveyd").unwrap();
     cmd.args(&["-V"])
         .current_dir(&temp_dir)
         .assert()
@@ -155,7 +155,7 @@ fn server_cli_version() {
 fn cli_log_configuration() {
     let temp_dir = TempDir::new().unwrap();
     let stderr_path = temp_dir.path().join("stderr");
-    let mut cmd = Command::cargo_bin("cavey-server").unwrap();
+    let mut cmd = Command::cargo_bin("caveyd").unwrap();
     let mut child = cmd
         .args(&["--engine", "kvs", "--addr", "127.0.0.1:4001"])
         .current_dir(&temp_dir)
@@ -176,7 +176,7 @@ fn cli_wrong_engine() {
     // sled first, kvs second
     {
         let temp_dir = TempDir::new().unwrap();
-        let mut cmd = Command::cargo_bin("cavey-server").unwrap();
+        let mut cmd = Command::cargo_bin("caveyd").unwrap();
         let mut child = cmd
             .args(&["--engine", "sled", "--addr", "127.0.0.1:4002"])
             .current_dir(&temp_dir)
@@ -185,7 +185,7 @@ fn cli_wrong_engine() {
         thread::sleep(Duration::from_secs(1));
         child.kill().expect("server exited before killed");
 
-        let mut cmd = Command::cargo_bin("cavey-server").unwrap();
+        let mut cmd = Command::cargo_bin("caveyd").unwrap();
         cmd.args(&["--engine", "kvs", "--addr", "127.0.0.1:4003"])
             .current_dir(&temp_dir)
             .assert()
@@ -195,7 +195,7 @@ fn cli_wrong_engine() {
     // kvs first, sled second
     {
         let temp_dir = TempDir::new().unwrap();
-        let mut cmd = Command::cargo_bin("cavey-server").unwrap();
+        let mut cmd = Command::cargo_bin("caveyd").unwrap();
         let mut child = cmd
             .args(&["--engine", "kvs", "--addr", "127.0.0.1:4002"])
             .current_dir(&temp_dir)
@@ -204,7 +204,7 @@ fn cli_wrong_engine() {
         thread::sleep(Duration::from_secs(1));
         child.kill().expect("server exited before killed");
 
-        let mut cmd = Command::cargo_bin("cavey-server").unwrap();
+        let mut cmd = Command::cargo_bin("caveyd").unwrap();
         cmd.args(&["--engine", "sled", "--addr", "127.0.0.1:4003"])
             .current_dir(&temp_dir)
             .assert()
@@ -215,7 +215,7 @@ fn cli_wrong_engine() {
 fn cli_access_server(engine: &str, addr: &str) {
     let (sender, receiver) = mpsc::sync_channel(0);
     let temp_dir = TempDir::new().unwrap();
-    let mut server = Command::cargo_bin("cavey-server").unwrap();
+    let mut server = Command::cargo_bin("caveyd").unwrap();
     let mut child = server
         .args(&["--engine", engine, "--addr", addr])
         .current_dir(&temp_dir)
@@ -229,7 +229,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set", "key1", "value1", "--addr", addr])
+        .args(&["--addr", addr, "put", "key1", "value1"])
         .current_dir(&temp_dir)
         .assert()
         .success()
@@ -237,7 +237,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["get", "key1", "--addr", addr])
+        .args(&["--addr", addr, "get", "key1"])
         .current_dir(&temp_dir)
         .assert()
         .success()
@@ -245,7 +245,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set", "key1", "value2", "--addr", addr])
+        .args(&["--addr", addr, "put", "key1", "value2"])
         .current_dir(&temp_dir)
         .assert()
         .success()
@@ -253,7 +253,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["get", "key1", "--addr", addr])
+        .args(&["--addr", addr, "get", "key1"])
         .current_dir(&temp_dir)
         .assert()
         .success()
@@ -261,7 +261,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["get", "key2", "--addr", addr])
+        .args(&["--addr", addr, "get", "key2"])
         .current_dir(&temp_dir)
         .assert()
         .success()
@@ -269,7 +269,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["rm", "key2", "--addr", addr])
+        .args(&["--addr", addr, "rm", "key2"])
         .current_dir(&temp_dir)
         .assert()
         .failure()
@@ -277,7 +277,7 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["set", "key2", "value3", "--addr", addr])
+        .args(&["--addr", addr, "put", "key2", "value3"])
         .current_dir(&temp_dir)
         .assert()
         .success()
@@ -285,18 +285,28 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["rm", "key1", "--addr", addr])
+        .args(&["--addr", addr, "rm", "key1"])
         .current_dir(&temp_dir)
         .assert()
         .success()
         .stdout(is_empty());
+
+    // SPIKE
+    Command::cargo_bin("cavey")
+        .unwrap()
+        .args(&["--addr", addr, "get", "key2"])
+        .current_dir(&temp_dir)
+        .assert()
+        .success()
+        .stdout(contains("value3"));
+    // END SPIKE
 
     sender.send(()).unwrap();
     handle.join().unwrap();
 
     // Reopen and check value
     let (sender, receiver) = mpsc::sync_channel(0);
-    let mut server = Command::cargo_bin("cavey-server").unwrap();
+    let mut server = Command::cargo_bin("caveyd").unwrap();
     let mut child = server
         .args(&["--engine", engine, "--addr", addr])
         .current_dir(&temp_dir)
@@ -310,14 +320,14 @@ fn cli_access_server(engine: &str, addr: &str) {
 
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["get", "key2", "--addr", addr])
+        .args(&["--addr", addr, "get", "key2"])
         .current_dir(&temp_dir)
         .assert()
         .success()
         .stdout(contains("value3"));
     Command::cargo_bin("cavey")
         .unwrap()
-        .args(&["get", "key1", "--addr", addr])
+        .args(&["--addr", addr, "get", "key1"])
         .current_dir(&temp_dir)
         .assert()
         .success()

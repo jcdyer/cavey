@@ -1,9 +1,10 @@
 
-use std::io::prelude::*;
 use std::net::{SocketAddr, TcpStream};
 
-use bincode::{serialize, deserialize};
+use bincode::{serialize_into, deserialize_from};
 use failure::format_err;
+use log::debug;
+
 use crate::Result;
 use crate::protocol::{ClientMessage, ServerMessage};
 
@@ -18,33 +19,53 @@ impl CaveyClient {
             .map_err(|e| e.into())
     }
 
-    fn send(&mut self, msg: &ClientMessage) -> Result<()> {
-        let payload = serialize(msg)?;
-        self.socket.write_all(&payload)?;
-        Ok(())
-    }
 
-    fn receive<'de>(&mut self, payload: &'de mut Vec<u8>) -> Result<ServerMessage<'de>> {
-        self.socket.read_to_end(payload)?;
-        Ok(deserialize(payload)?)
-    }
-
-    pub fn get(&mut self, key: &str) -> Result<Option<String>> {
-        let mut payload = Vec::new();
+    pub fn get(&mut self, key: String) -> Result<Option<String>> {
         let request = ClientMessage::Get { key };
         self.send(&request)?;
-        let response: ServerMessage = self.receive(&mut payload)?;
+        self.receive_value()
+    }
+
+    pub fn put(&mut self, key: String, value: String) -> Result<()> {
+        let request = ClientMessage::Put { key, value };
+        self.send(&request)?;
+        self.receive_empty()
+    }
+
+    pub fn remove(&mut self, key: String) -> Result<()> {
+        let request = ClientMessage::Remove { key };
+        self.send(&request)?;
+        self.receive_empty()
+    }
+
+    fn send(&mut self, msg: &ClientMessage) -> Result<()> {
+        debug!("sending_message: {:?}", msg);
+        Ok(serialize_into(&mut self.socket, msg)?)
+    }
+
+    fn receive_empty(&mut self) -> Result<()> {
+        let response: ServerMessage = self.receive()?;
         match response {
-            ServerMessage::Success { value } => Ok(value.map(|val| val.to_owned())),
+            ServerMessage::Success { value } => match value {
+                None => Ok(()),
+                Some(val) => Err(format_err!("cavey error: unexpected response {:?}", val)),
+            },
             ServerMessage::Error { err } => Err(format_err!("cavey error: {}", err)),
         }
     }
 
-    pub fn put(&mut self, key: &str, value: &str) -> Result<()> {
-        unimplemented!()
+    fn receive_value(&mut self) -> Result<Option<String>> {
+
+        let response: ServerMessage = self.receive()?;
+        match response {
+            ServerMessage::Success { value } => Ok(value),
+            ServerMessage::Error { err } => Err(format_err!("cavey error: {}", err)),
+        }
     }
 
-    pub fn remove(&mut self, key: &str) -> Result<()> {
-        unimplemented!()
+    fn receive(&mut self) -> Result<ServerMessage> {
+        let resp = deserialize_from(&mut self.socket)?;
+        debug!("received message: {:?}", resp);
+        Ok(resp)
     }
 }

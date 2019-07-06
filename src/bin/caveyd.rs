@@ -2,10 +2,10 @@ use std::net::{SocketAddr, TcpListener};
 
 use env_logger;
 use failure::Error;
-use log::debug;
+use log::info;
 use structopt::StructOpt;
 
-use cavey::{CaveyEngine, CaveyStore};
+use cavey::{CaveyEngine, CaveyStore, SledStore};
 
 #[derive(Debug, StructOpt)]
 struct Options {
@@ -42,15 +42,17 @@ fn main() -> Result<(), Error> {
         println!("{}", env!("CARGO_PKG_VERSION"));
         return Ok(())
     }
-    env_logger::init();
-    debug!("cavey-server called with options: {:?}", opts);
+
+    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    info!("version: {}", env!("CARGO_PKG_VERSION"));
+    info!("engine: {}", opts.engine_name);
     let mut engine: Box<dyn CaveyEngine> = match &opts.engine_name[..] {
         "kvs" => Box::new(CaveyStore::open(".")?),
-        "sled" => unimplemented!(),
-        _ => panic!("unknown engine"),
+        "sled" => Box::new(SledStore::open(".")?),
+        _ => panic!(r#"unknown engine. Valid options are "kvs" and "sled""#),
     };
-    debug!("binding to socket {}", opts.addr);
+    info!("binding to socket {}", opts.addr);
     let mut server = TcpListener::bind(opts.addr)?;
-    cavey::run_server(&mut server, &mut engine)?;
+    cavey::run_server(&mut server, &mut *engine)?;
     Ok(())
 }

@@ -1,12 +1,15 @@
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::io::{prelude::*, BufReader, BufWriter, SeekFrom};
+use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 
-use failure::{format_err, Error};
+use failure::{format_err};
 use serde::{Deserialize, Serialize};
 
 use crate::CaveyEngine;
+use crate::utils::check_engine;
 use super::Result;
 
 
@@ -31,6 +34,7 @@ impl CaveyStore {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<CaveyStore> {
         let datadir = path.as_ref().join("data");
         create_dir_all(&datadir)?;
+        check_engine(&datadir, b"cavey")?;
         let candidates = std::fs::read_dir(&datadir)?
             .map(|entry| entry.map(|e| e.path()))
             .collect::<std::io::Result<Vec<_>>>();
@@ -38,6 +42,7 @@ impl CaveyStore {
         candidates.sort();
         let filename = candidates
             .into_iter()
+            .filter(|path| path.file_name().unwrap_or_default() != OsStr::from_bytes(&b".engine"[..]))
             .take(1)
             .next()
             .unwrap_or_else(|| datadir.join(&format!("{:08}", 0)));
