@@ -5,6 +5,7 @@ authors = ["J. Cliff Dyer <jcd@sdf.org>"]
 edition = "2018"
 
 [dependencies]
+byteorder = "*"
 structopt = "0.2"
 failure = "0.1"
 serde = "1.0"

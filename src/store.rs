@@ -30,6 +30,11 @@ pub struct CaveyStore {
     entries: usize,
 }
 
+/// When a new command comes in, Add to WAL and in-memory BTree.  When size > 4MB, compact from in-memory
+/// BTree to L1, merging with other L1 SSTable as needed.  (Track start value of
+/// each SSTable, so we know which ones to compact with.
+/// When Ln has 5^n + 1 nodes, compact the oldest two down to the next level.
+/// (or the oldest one in the case of L0.
 impl CaveyStore {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<CaveyStore> {
         let datadir = path.as_ref().join("data");

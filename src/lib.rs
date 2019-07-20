@@ -10,6 +10,7 @@ mod store;
 mod server;
 mod protocol;
 mod sled_store;
+mod sstable;
 mod utils;
 
 pub type Result<T> = std::result::Result<T, Error>;

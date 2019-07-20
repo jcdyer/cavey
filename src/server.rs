@@ -2,7 +2,7 @@ use std::net::TcpListener;
 use std::io::prelude::*;
 
 use bincode::{deserialize_from, serialize_into};
-use log::{trace, info, error};
+use log::{trace, debug, error};
 
 use crate::CaveyEngine;
 use crate::Result;
@@ -25,7 +25,7 @@ pub fn run_server(socket: &mut TcpListener, engine: &mut dyn CaveyEngine) -> Res
 
 fn handle_connection<R: Read + Write>(stream: &mut R, engine: &mut dyn CaveyEngine) -> Result<()> {
     let msg: ClientMessage = deserialize_from(&mut *stream)?;
-    info!("caveyd: received msg: {:?}", msg);
+    debug!("caveyd: received msg: {:?}", msg);
     let response = match msg {
         ClientMessage::Get { key } => {
             match engine.get(key) {
